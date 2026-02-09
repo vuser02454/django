@@ -1,0 +1,162 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Crowd Heatmap for Business Startups</title>
+    
+    <!-- Leaflet CSS -->
+    <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
+    
+    <!-- Custom CSS -->
+    {% load static %}
+    <link rel="stylesheet" href="{% static 'css/style.css' %}">
+</head>
+<body>
+    <!-- Black Horizontal Panel -->
+    <div class="control-panel">
+        <div class="panel-content">
+            <!-- Search Field -->
+            <div class="search-container">
+                <input type="text" id="location-search" class="search-input" placeholder="Search locations...">
+                <div id="location-suggestions" class="suggestions-list"></div>
+                <button id="search-btn" class="panel-btn">Search</button>
+            </div>
+            
+            <!-- Popular places summary (auto-complete style table) -->
+            <div id="popular-places-panel" class="popular-places-panel" style="display: none;">
+                <div class="popular-places-header">
+                    <span class="popular-places-title">Popular places within 5km</span>
+                    <button id="popular-places-close" class="popular-places-close-btn" title="Hide list">×</button>
+                </div>
+                <div id="popular-places-list" class="popular-places-list">
+                    <!-- Filled dynamically from JavaScript -->
+                </div>
+            </div>
+            
+            <!-- Find Location Button -->
+            <button id="find-location-btn" class="panel-btn">Find My Location</button>
+            
+            <!-- Find Popular Places Button -->
+            <button id="popular-places-btn" class="panel-btn">Find Popular Places (5km)</button>
+            
+            <!-- Accuracy Meter -->
+            <div class="accuracy-meter-container">
+                <label>Accuracy Meter (vs OpenStreetMap):</label>
+                <div class="meter-wrapper">
+                    <div class="meter-bar">
+                        <div id="accuracy-meter" class="meter-fill">0%</div>
+                    </div>
+                    <span id="accuracy-value">0%</span>
+                </div>
+            </div>
+            
+            <!-- Map Toggle Button -->
+            <button id="map-toggle-btn" class="panel-btn toggle-btn">Minimize Map</button>
+            
+            <!-- Dark/Light Mode Toggle -->
+            <button id="theme-toggle-btn" class="panel-btn theme-toggle-btn" title="Toggle Dark/Light Mode">
+                <span id="theme-icon">🌙</span>
+            </button>
+        </div>
+    </div>
+
+    <!-- Map Container -->
+    <div id="map-container" class="map-container">
+        <div id="map"></div>
+        <!-- Legend -->
+        <div class="map-legend">
+            <h4>Legend</h4>
+            <div class="legend-item">
+                <span class="legend-color" style="background-color: #ff0000;"></span>
+                <span>High Intensity</span>
+            </div>
+            <div class="legend-item">
+                <span class="legend-color" style="background-color: #ffaa00;"></span>
+                <span>Medium Intensity</span>
+            </div>
+            <div class="legend-item">
+                <span class="legend-color" style="background-color: #00ff00;"></span>
+                <span>Low Intensity</span>
+            </div>
+        </div>
+    </div>
+
+    <!-- Chatbot -->
+    <div id="chatbot-container" class="chatbot-container">
+        <div class="chatbot-header">
+            <h3>Assistant</h3>
+            <button id="chatbot-toggle" class="chatbot-toggle-btn">−</button>
+        </div>
+        <div id="chatbot-messages" class="chatbot-messages"></div>
+        <div class="chatbot-input-container">
+            <input type="text" id="chatbot-input" class="chatbot-input" placeholder="Type your message...">
+            <button id="chatbot-send" class="chatbot-send-btn">Send</button>
+        </div>
+    </div>
+
+    <!-- Form Modal -->
+    <div id="form-modal" class="modal">
+        <div class="modal-content">
+            <span class="close">&times;</span>
+            <h2>Business Information Form</h2>
+            <form id="business-form">
+                {% csrf_token %}
+                <div class="form-group">
+                    <label for="id_name">Name:</label>
+                    <input type="text" id="id_name" name="name" class="form-control" placeholder="Enter your name" required>
+                </div>
+                
+                <div class="form-group">
+                    <label for="id_email">Email:</label>
+                    <input type="email" id="id_email" name="email" class="form-control" placeholder="Enter your email" required>
+                </div>
+                
+                <div class="form-group">
+                    <label for="id_phone">Phone:</label>
+                    <input type="text" id="id_phone" name="phone" class="form-control" placeholder="Enter your phone number" required>
+                </div>
+                
+                <div class="form-group">
+                    <label for="id_business_type">Business Type:</label>
+                    <input type="text" id="id_business_type" name="business_type" class="form-control" placeholder="Type of business" required>
+                </div>
+                
+                <div class="form-group">
+                    <label for="id_crowd_intensity">Crowd Intensity (Select location first to see available options):</label>
+                    <select id="id_crowd_intensity" name="crowd_intensity" class="form-control" required>
+                        <option value="">Select a location on the map first</option>
+                    </select>
+                    <small style="color: #888; font-size: 12px; margin-top: 5px; display: block;">
+                        Click on the map, use "Find My Location", or search for a location to analyze crowd intensity
+                    </small>
+                </div>
+
+                <div class="form-group">
+                    <label for="form-location-search">Business Location Search:</label>
+                    <input type="text" id="form-location-search" class="form-control" placeholder="Search for business location...">
+                    <div id="form-location-suggestions" class="suggestions-list"></div>
+                    <small style="color: #888; font-size: 12px; margin-top: 5px; display: block;">
+                        Start typing to see suggestions, then select a location. The map and coordinates will update automatically.
+                    </small>
+                </div>
+                
+                <input type="hidden" id="id_latitude" name="latitude">
+                <input type="hidden" id="id_longitude" name="longitude">
+                
+                <button type="submit" class="submit-btn">Submit</button>
+            </form>
+            <div id="form-message" class="form-message"></div>
+        </div>
+    </div>
+
+    <!-- Form Trigger Button -->
+    <button id="form-trigger-btn" class="form-trigger-btn">Submit Business Info</button>
+
+    <!-- Leaflet JS -->
+    <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+    
+    <!-- Custom JS -->
+    <script src="{% static 'js/main.js' %}"></script>
+</body>
+</html>
